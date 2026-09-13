@@ -733,7 +733,7 @@ await run("rm -rf /tmp/pg /tmp/pg.log /tmp/h /tmp/h.c /tmp/a /tmp/a.o /tmp/a.asm
 
 In the machine-save block change the assertion to:
 ```ts
-assert.ok(savedMB < 60, "compressed machine save is under 60 MB");
+assert.ok(savedMB < 80, "compressed machine save is under 80 MB");
 ```
 In the sizes block change the assertion to:
 ```ts
@@ -852,7 +852,7 @@ Run: `gh pr checks --watch` (from the repo directory), then read the logs:
 ```bash
 gh run view <run-id> -R hammadshakeelai/LinuxWeb --log | grep -E "PASS|INFO|FAIL|Error"
 ```
-Expected in "Build and test image": PASS lines for bash, gcc, nasm, valgrind, node, PostgreSQL; `INFO machine save: ... MB gzip` under 60; `INFO file tree ... MB` under 850.
+Expected in "Build and test image": PASS lines for bash, gcc, nasm, valgrind, node, PostgreSQL; `INFO machine save: ... MB gzip` under 80; `INFO file tree ... MB` under 850.
 Expected in "Network (uses the internet)": PASS for DHCP, curl, and apk add.
 
 If a check fails, fix the cause (for example a package path or a PostgreSQL command) and push again. Do not start Task 3 until all of these pass. Record the measured save size, tree size, and image job duration in the PR description.

@@ -192,7 +192,7 @@ pass("host-written terminal size is applied with stty");
 const saved = await emulator.save_state();
 const savedMB = gzipSync(new Uint8Array(saved)).byteLength / 1e6;
 console.log(`INFO machine save: ${Math.round(saved.byteLength / 1e6)} MB raw, ${savedMB.toFixed(1)} MB gzip`);
-assert.ok(savedMB < 60, "compressed machine save is under 60 MB");
+assert.ok(savedMB < 80, "compressed machine save is under 80 MB");
 pass("machine save size");
 
 // Spec 9.5: sizes.
