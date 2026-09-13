@@ -144,8 +144,14 @@ async function main() {
     else terminal.focus();
   });
 
-  view.buttons.fullscreen.addEventListener("click", () => void view.root.requestFullscreen?.());
-  view.buttons.exitFullscreen.addEventListener("click", () => void document.exitFullscreen());
+  // iPhone Safari has no element full screen; hide the button instead of letting it do nothing.
+  view.buttons.fullscreen.hidden = !document.fullscreenEnabled;
+  view.buttons.fullscreen.addEventListener("click", () => {
+    view.root.requestFullscreen().catch(() => showMessage("Full screen", "This browser didn't allow full screen."));
+  });
+  view.buttons.exitFullscreen.addEventListener("click", () => {
+    document.exitFullscreen().catch(() => {});
+  });
 
   view.buttons.help.addEventListener("click", async () => {
     const pre = document.createElement("pre");
