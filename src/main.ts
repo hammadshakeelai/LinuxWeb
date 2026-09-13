@@ -93,7 +93,7 @@ async function main() {
     setStatus({ kind: "paused-other-tab" });
   }
 
-  terminal.writeText(welcomeText(restored));
+  terminal.writeText(welcomeText(restored, "offline"));
   running.sendSerial("\n");
 
   const reporter = new SizeReporter((path, data) => running.createFile(path, data));

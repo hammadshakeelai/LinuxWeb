@@ -95,6 +95,12 @@ export class HomeSync {
     }
   }
 
+  /** Waits for any save in progress, then saves once more if the home folder changed. */
+  async flush(): Promise<void> {
+    while (this.busy) await this.deps.sleep(100);
+    await this.pollOnce();
+  }
+
   start(): void {
     this.timer = setInterval(() => {
       this.pollOnce().catch(() => this.deps.onStatus({ kind: "off" }));
