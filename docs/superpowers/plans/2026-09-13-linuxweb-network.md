@@ -1100,6 +1100,7 @@ export const PACKAGES_LIST = "/root/.config/linuxweb/packages";
 In `image/test-image.ts`, add `NETWORK_STATE, PACKAGES_STATUS` to the `../src/protocol.ts` import, and directly after `pass("helper restores an archive into /root");` add:
 ```ts
 // Offline with a restored package list: the helper must not rewrite or reinstall it.
+await emulator.create_file(RESTORED_COUNT, new Uint8Array());
 await run(
   "rm -rf /tmp/p && mkdir -p /tmp/p/.config/linuxweb && echo nyancat > /tmp/p/.config/linuxweb/packages && tar -czf /tmp/p.tar.gz -C /tmp/p . && mv /tmp/p.tar.gz /.linuxweb/restore.tar.gz",
   PROMPT,
@@ -1691,7 +1692,7 @@ export class NetworkMonitor {
 ```
 
 Run: `npx vitest run src/network.test.ts`
-Expected: PASS (10 tests).
+Expected: PASS (11 tests).
 
 - [ ] **Step 3: Write the failing emulator tests**
 
@@ -1718,7 +1719,16 @@ Add inside `describe("startVm", ...)`:
     const fake = new FakeV86();
     let report: (reason: unknown) => void = () => {};
     const unwatch = vi.fn();
-    const started = startVm({}, { create: () => fake, watchErrors: (onError) => ((report = onError), unwatch) });
+    const started = startVm(
+      {},
+      {
+        create: () => fake,
+        watchErrors: (onError) => {
+          report = onError;
+          return unwatch;
+        },
+      },
+    );
     report(new Error("some unrelated error"));
     report(new RangeError("out of memory"));
     await expect(started).rejects.toBeInstanceOf(MemoryError);
@@ -2017,7 +2027,8 @@ Add to `src/home.test.ts` inside `describe("HomeSync", ...)`:
       store: { getHome: async () => undefined, putHome },
       onStatus: () => {},
       now: () => 1000,
-      sleep: async () => {},
+      // A real macrotask, so flush's wait loop lets vi.waitFor's timers run.
+      sleep: () => new Promise((resolve) => setTimeout(resolve, 0)),
       persist: async () => true,
     });
     await sync.restore();
@@ -2026,7 +2037,7 @@ Add to `src/home.test.ts` inside `describe("HomeSync", ...)`:
     guest.map.set(HOME_VERSION, text("3\n"));
     guest.map.set(HOME_ARCHIVE, text("latest"));
     const flushing = sync.flush();
-    await Promise.resolve();
+    await vi.waitFor(() => expect(putHome).toHaveBeenCalledTimes(1));
     release();
     await first;
     await vi.waitFor(() => expect(putHome).toHaveBeenCalledTimes(2));
