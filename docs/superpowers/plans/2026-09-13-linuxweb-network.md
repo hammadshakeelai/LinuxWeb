@@ -792,7 +792,7 @@ assert.ok(snapOut.includes("Snaps need systemd, which LinuxWeb doesn't have. Try
 pass("apt, apt-get, pacman and snap translate to apk, and apk explains it is offline");
 ```
 
-Directly after `pass("PostgreSQL initializes, starts and stops");` add a check of the commands the help tour documents:
+Replace the `su`-based PostgreSQL check and its `pass("PostgreSQL initializes, starts and stops");` line with a check of the commands the help tour documents (initializing a cluster is the slowest step under v86, so it runs once):
 ```ts
 await run(
   "rc-service postgresql setup >/dev/null && rc-service postgresql start >/dev/null && psql -U postgres -tAc 'select 20+22' && rc-service postgresql stop >/dev/null && echo PSQL-$((20+22))",
@@ -801,7 +801,7 @@ await run(
 );
 pass("the help tour's PostgreSQL commands work");
 ```
-In the cleanup command that follows, add `/var/lib/postgresql/17` to the `rm -rf` list.
+In the cleanup command that follows, drop `/tmp/pg /tmp/pg.log` and add `/var/lib/postgresql/17` to the `rm -rf` list.
 
 These checks fail until Steps 2–5 are done; they are verified in CI (Step 7).
 
