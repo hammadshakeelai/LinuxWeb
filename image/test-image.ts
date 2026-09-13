@@ -79,13 +79,14 @@ function pass(message: string) {
 await run("", PROMPT);
 pass("newline after resume prints a prompt");
 
-// Some packages ship empty directories (PostgreSQL's log directory is one). Report whether
-// they are in fs.json and in the running VM.
-const EMPTY_DIRS = ["home", "mnt", "opt", "srv", "var/empty", "var/log", "var/log/postgresql", "var/lib/postgresql", "etc/postgresql17"];
+// Empty directories that packages install, such as PostgreSQL's log directory, must reach fs.json.
+const PACKAGE_DIRS = ["var/empty", "var/log/postgresql", "var/lib/postgresql", "etc/postgresql17"];
 const fsRoot = (JSON.parse(await readFile(file("./out/fs.json"), "utf8")) as { fsroot: FsEntry[] }).fsroot;
-console.log(`INFO in fs.json: ${EMPTY_DIRS.map((d) => `/${d} ${fsJsonHas(fsRoot, d.split("/")) ? "yes" : "no"}`).join(", ")}`);
-const dirList = await run(`ls -lnd ${EMPTY_DIRS.map((d) => `/${d}`).join(" ")} 2>&1; echo DIRS-$((20+22))`, "DIRS-42");
-console.log(`INFO in the VM:\n${dirList}`);
+for (const dir of PACKAGE_DIRS) assert.ok(fsJsonHas(fsRoot, dir.split("/")), `fs.json has /${dir}`);
+pass("fs.json has /var and the empty directories packages install");
+
+await run("python3 -c 'import socket; print(\"LOCALHOST\", socket.gethostbyname(\"localhost\"))'", "LOCALHOST 127.0.0.1");
+pass("localhost resolves");
 
 await run("help", "LinuxWeb tour");
 pass("help prints the tour");
