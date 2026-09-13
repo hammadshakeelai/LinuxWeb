@@ -17,6 +17,7 @@ docker run --rm --platform linux/386 linuxweb-image apk list --installed | sort 
 
 tar -f "$OUT/rootfs.tar" --delete ".dockerenv" 2>/dev/null || true
 python3 tools/fs2json.py --zstd --out "$OUT/fs.json" "$OUT/rootfs.tar"
+mkdir -p "$OUT/rootfs"   # copy-to-sha256.py expects the folder to exist
 python3 tools/copy-to-sha256.py --zstd "$OUT/rootfs.tar" "$OUT/rootfs"
 rm "$OUT/rootfs.tar"
 
