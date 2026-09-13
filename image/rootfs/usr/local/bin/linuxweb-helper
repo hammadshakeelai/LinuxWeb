@@ -1,0 +1,46 @@
+#!/bin/sh
+# Exchanges files with the LinuxWeb page through /.linuxweb (spec section 5).
+DIR=/.linuxweb
+mkdir -p "$DIR"
+[ -f "$DIR/home.version" ] || echo 0 > "$DIR/home.version"
+
+listing() {
+  find /root -exec stat -c '%n|%s|%Y' {} + 2>/dev/null | sort | md5sum
+}
+
+write_atomic() { # write_atomic <file> <content>
+  printf '%s\n' "$2" > "$1.tmp" && mv "$1.tmp" "$1"
+}
+
+last_listing=""
+last_size=""
+
+while true; do
+  if [ -s "$DIR/restore.tar.gz" ]; then
+    count=$(tar -tzf "$DIR/restore.tar.gz" 2>/dev/null | grep -vc '/$')
+    tar -xzf "$DIR/restore.tar.gz" -C /root 2>/dev/null
+    rm -f "$DIR/restore.tar.gz"
+    write_atomic "$DIR/restored" "$count"
+    last_listing=$(listing)
+  fi
+
+  if [ -s "$DIR/size" ]; then
+    size=$(cat "$DIR/size")
+    if [ "$size" != "$last_size" ]; then
+      set -- $size
+      stty -F /dev/ttyS0 rows "$1" cols "$2" 2>/dev/null
+      last_size="$size"
+    fi
+  fi
+
+  current=$(listing)
+  if [ "$current" != "$last_listing" ]; then
+    if tar -czf "$DIR/home.tar.gz.tmp" -C /root . 2>/dev/null; then
+      mv "$DIR/home.tar.gz.tmp" "$DIR/home.tar.gz"
+      write_atomic "$DIR/home.version" "$(( $(cat "$DIR/home.version") + 1 ))"
+    fi
+    last_listing="$current"
+  fi
+
+  sleep 2
+done

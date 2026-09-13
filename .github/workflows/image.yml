@@ -1,0 +1,48 @@
+name: Image
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  image:
+    name: Build and test image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Cache the built image
+        id: cache
+        uses: actions/cache@v6
+        with:
+          path: image/out
+          key: linuxweb-image-${{ hashFiles('image/**', 'src/vm-config.ts', 'src/protocol.ts', 'public/bios/**', 'package-lock.json') }}
+
+      - uses: actions/setup-python@v7
+        if: steps.cache.outputs.cache-hit != 'true'
+        with:
+          python-version: "3.12"
+
+      - name: Build and test the image
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          npm ci
+          pip install zstandard
+          bash image/build.sh
+
+      - name: Pack the image
+        run: tar -cf image-out.tar -C image out
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: linuxweb-image
+          path: image-out.tar
+          retention-days: 7

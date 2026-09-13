@@ -1,0 +1,2 @@
+#!/bin/sh
+cat /usr/local/share/linuxweb/help.txt
