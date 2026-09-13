@@ -11,6 +11,8 @@
     "dev": "vite",
     "prebuild": "node scripts/prepare-public.ts",
     "build": "tsc --noEmit && vite build",
+    "postbuild": "node scripts/copy-image.ts",
+    "readme-images": "node scripts/readme-images.ts",
     "preview": "vite preview --port 4173 --strictPort",
     "lint": "oxlint --deny-warnings src scripts image e2e",
     "typecheck": "tsc --noEmit",
