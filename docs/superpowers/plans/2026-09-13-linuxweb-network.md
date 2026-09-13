@@ -1198,7 +1198,7 @@ await first.run(
   "TRACK-42",
   60_000,
 );
-let home = new Uint8Array();
+let home: Uint8Array = new Uint8Array();
 await waitFor(
   async () => {
     try {
@@ -1717,7 +1717,7 @@ Add inside `describe("startVm", ...)`:
 
   it("rejects with MemoryError when v86 reports an allocation failure later", async () => {
     const fake = new FakeV86();
-    let report: (reason: unknown) => void = () => {};
+    let report: ((reason: unknown) => void) | undefined;
     const unwatch = vi.fn();
     const started = startVm(
       {},
@@ -1729,8 +1729,8 @@ Add inside `describe("startVm", ...)`:
         },
       },
     );
-    report(new Error("some unrelated error"));
-    report(new RangeError("out of memory"));
+    report?.(new Error("some unrelated error"));
+    report?.(new RangeError("out of memory"));
     await expect(started).rejects.toBeInstanceOf(MemoryError);
     expect(unwatch).toHaveBeenCalled();
   });

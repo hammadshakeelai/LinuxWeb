@@ -31,8 +31,15 @@ RUN for i in devfs dmesg mdev hwdrivers; do rc-update add $i sysinit; done \
 # The helper subtracts this list from /etc/apk/world to find packages a visitor added.
 RUN mkdir -p /usr/local/share/linuxweb && sort -u /etc/apk/world > /usr/local/share/linuxweb/base-world
 
+COPY tools/commands-index.py /tmp/commands-index.py
+RUN python3 /tmp/commands-index.py > /usr/local/share/linuxweb/commands.tsv \
+ && rm /tmp/commands-index.py \
+ && test "$(wc -l < /usr/local/share/linuxweb/commands.tsv)" -gt 1000 \
+ && grep -qx "$(printf 'nyancat\tnyancat')" /usr/local/share/linuxweb/commands.tsv
+
 COPY rootfs/ /
 RUN chmod +x /usr/local/bin/linuxweb-helper /usr/local/bin/linuxweb-help /etc/init.d/linuxweb-helper \
+      /usr/local/bin/apk /usr/local/bin/apt /usr/local/bin/apt-get /usr/local/bin/pacman /usr/local/bin/snap \
  && mkdir -p /.linuxweb \
  && rc-update add linuxweb-helper default
 

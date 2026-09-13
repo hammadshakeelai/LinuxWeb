@@ -135,7 +135,7 @@ home.ts / packages status  ◄── reads /.linuxweb/packages-status ◄── 
 - Adds to `image/rootfs/`:
   - `/usr/local/bin/apk`: the offline guard, which then runs `/sbin/apk "$@"`. `/usr/local/bin` comes before `/sbin` in Alpine's default `PATH`.
   - `/usr/local/bin/apt`, `apt-get`, `pacman`, `snap`: the translators in section 3.
-  - `/etc/bash/bashrc.d/linuxweb.sh`: `command_not_found_handle` using `commands.tsv`, and the `help` alias for bash.
+  - `/etc/profile.d/linuxweb.sh` (read by bash login shells): `command_not_found_handle` using `commands.tsv`, the `help` alias, and the `localhost:~# ` prompt.
 - The snapshot is built with `net_device: { type: "virtio" }` and no `relay_url`.
 - Writes `image/out/version.txt`: the first 12 hex characters of the SHA-256 of `fs.json` followed by `state.bin.zst`. The page uses it to mark older machine saves.
 

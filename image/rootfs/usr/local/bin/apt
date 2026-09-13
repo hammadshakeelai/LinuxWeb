@@ -1,0 +1,37 @@
+#!/bin/sh
+# apt on LinuxWeb translates to Alpine's apk (network spec section 3).
+name=${LINUXWEB_APT_NAME:-apt}
+
+alpine_names() { # Debian names that differ on Alpine; drops options like -y
+  for pkg in "$@"; do
+    case "$pkg" in
+      -*) ;;
+      build-essential) echo build-base ;;
+      python3-pip) echo py3-pip ;;
+      openssh-client) echo openssh-client-default ;;
+      neofetch) echo fastfetch ;;
+      *) echo "$pkg" ;;
+    esac
+  done
+}
+
+run() {
+  echo "$name on LinuxWeb runs Alpine's package manager: $*"
+  exec "$@"
+}
+
+sub=$1
+[ $# -gt 0 ] && shift
+case "$sub" in
+  install) run apk add $(alpine_names "$@") ;;
+  remove|purge|autoremove) run apk del $(alpine_names "$@") ;;
+  update) run apk update ;;
+  upgrade|full-upgrade|dist-upgrade) run apk upgrade ;;
+  search) run apk search "$@" ;;
+  show) run apk info -a $(alpine_names "$@") ;;
+  list) run apk info ;;
+  *)
+    echo "$name on LinuxWeb understands: install, remove, purge, autoremove, update, upgrade, full-upgrade, dist-upgrade, search, show, list" >&2
+    exit 1
+    ;;
+esac

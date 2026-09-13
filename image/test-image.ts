@@ -81,6 +81,21 @@ pass("python3, git and vim run");
 await run('echo "SHELL-$0"', "SHELL--bash");
 pass("bash is the login shell");
 
+await run("nyancat", "(needs the network: set a relay with the Network button)");
+assert.ok(serial.text.includes("nyancat: command not found. Install it with: apk add nyancat"), "missing command suggests its package");
+pass("a missing command suggests its package and says the network is offline");
+
+const aptOut = await run("apt install build-essential nyancat; echo APT-$((20+22))", "APT-42");
+assert.ok(aptOut.includes("apt on LinuxWeb runs Alpine's package manager: apk add build-base nyancat"), "apt translates to apk with Alpine names");
+assert.ok(aptOut.includes("LinuxWeb is offline: set a relay with the Network button to install packages."), "apk explains it is offline");
+const aptGetOut = await run("apt-get update; echo APTGET-$((20+22))", "APTGET-42");
+assert.ok(aptGetOut.includes("apt-get on LinuxWeb runs Alpine's package manager: apk update"), "apt-get translates to apk");
+const pacmanOut = await run("pacman -S nyancat; echo PACMAN-$((20+22))", "PACMAN-42");
+assert.ok(pacmanOut.includes("pacman on LinuxWeb runs Alpine's package manager: apk add nyancat"), "pacman translates to apk");
+const snapOut = await run("snap install nyancat; echo SNAP-$((20+22))", "SNAP-42");
+assert.ok(snapOut.includes("Snaps need systemd, which LinuxWeb doesn't have. Trying apk add nyancat instead."), "snap explains and tries apk");
+pass("apt, apt-get, pacman and snap translate to apk, and apk explains it is offline");
+
 await run(
   "printf 'int main(void){return 0;}\\n' > /tmp/h.c && gcc /tmp/h.c -o /tmp/h && /tmp/h && echo GCC-$((20+22))",
   "GCC-42",
@@ -108,7 +123,17 @@ await run(
 );
 pass("PostgreSQL initializes, starts and stops");
 
-await run("rm -rf /tmp/pg /tmp/pg.log /tmp/h /tmp/h.c /tmp/a /tmp/a.o /tmp/a.asm && echo CLEAN-$((20+22))", "CLEAN-42");
+await run(
+  "rc-service postgresql setup >/dev/null && rc-service postgresql start >/dev/null && psql -U postgres -tAc 'select 20+22' && rc-service postgresql stop >/dev/null && echo PSQL-$((20+22))",
+  "PSQL-42",
+  900_000,
+);
+pass("the help tour's PostgreSQL commands work");
+
+await run(
+  "rm -rf /tmp/pg /tmp/pg.log /tmp/h /tmp/h.c /tmp/a /tmp/a.o /tmp/a.asm /var/lib/postgresql/17 && echo CLEAN-$((20+22))",
+  "CLEAN-42",
+);
 
 // Spec 9.1: guest writes to the 9P root are readable from the host.
 const versionBefore = await readText(HOME_VERSION);

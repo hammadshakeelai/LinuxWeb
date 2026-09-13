@@ -1,0 +1,22 @@
+#!/bin/sh
+# pacman on LinuxWeb translates to Alpine's apk (network spec section 3).
+run() {
+  echo "pacman on LinuxWeb runs Alpine's package manager: $*"
+  "$@"
+}
+
+op=$1
+[ $# -gt 0 ] && shift
+case "$op" in
+  -S) run apk add "$@" ;;
+  -Sy) run apk update ;;
+  -Syu) run apk update && run apk upgrade ;;
+  -R|-Rs) run apk del "$@" ;;
+  -Ss) run apk search "$@" ;;
+  -Q) run apk info ;;
+  -Qi) run apk info -a "$@" ;;
+  *)
+    echo "pacman on LinuxWeb understands: -S, -Sy, -Syu, -R, -Rs, -Ss, -Q, -Qi" >&2
+    exit 1
+    ;;
+esac
