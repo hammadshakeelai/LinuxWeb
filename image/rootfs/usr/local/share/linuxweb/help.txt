@@ -1,0 +1,19 @@
+LinuxWeb tour
+=============
+
+Moving around
+  pwd              show where you are
+  ls               list files here (ls -la shows hidden files too)
+  cd /etc          go into a folder; cd on its own takes you home
+
+Editing a file
+  nano notes.txt   edit notes.txt (Ctrl+O saves, Ctrl+X quits)
+
+Running Python
+  python3          start Python (type exit() to leave)
+  python3 hi.py    run a Python file
+
+Where your files are saved
+  Only files in /root, your home folder, are saved in this browser.
+  Installed packages and changes anywhere else reset on your next visit.
+  Save machine in the toolbar keeps everything, including open programs.

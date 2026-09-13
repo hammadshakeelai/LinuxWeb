@@ -1,0 +1,5 @@
+#!/sbin/openrc-run
+description="LinuxWeb helper: saves the home folder and syncs the terminal size"
+command="/usr/local/bin/linuxweb-helper"
+command_background=true
+pidfile="/run/linuxweb-helper.pid"
