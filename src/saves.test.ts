@@ -1,6 +1,6 @@
 import "fake-indexeddb/auto";
 import { describe, expect, it, vi } from "vitest";
-import { MachineSaves, StorageFullError, TooManySavesError, UnreadableSaveError, defaultSaveName } from "./saves.ts";
+import { MachineSaves, StorageFullError, TooManySavesError, UnreadableSaveError, defaultSaveName, isOlderSave } from "./saves.ts";
 import { Store } from "./storage.ts";
 
 let dbCount = 0;
@@ -20,6 +20,15 @@ async function setup() {
 describe("defaultSaveName", () => {
   it("formats local date and time", () => {
     expect(defaultSaveName(new Date(2026, 0, 2, 3, 4).getTime())).toBe("2026-01-02 03:04");
+  });
+});
+
+describe("isOlderSave", () => {
+  it("marks saves from another image, or without a version, as older", () => {
+    expect(isOlderSave({ imageVersion: "abc" }, "abc")).toBe(false);
+    expect(isOlderSave({ imageVersion: "abc" }, "def")).toBe(true);
+    expect(isOlderSave({}, "def")).toBe(true);
+    expect(isOlderSave({}, null)).toBe(false);
   });
 });
 
@@ -77,5 +86,16 @@ describe("MachineSaves", () => {
     expect((await saves.exportFile(id)).filename).toBe("linuxweb-My-setup-v2.bin.gz");
     await saves.delete(id);
     expect(await saves.list()).toEqual([]);
+  });
+
+  it("records the current image version on new saves", async () => {
+    const store = await Store.open(`saves-test-${dbCount++}`);
+    const vm = { saveState: vi.fn(async () => new ArrayBuffer(8)), restoreState: vi.fn(async () => {}) };
+    const saves = new MachineSaves({ vm, store, imageVersion: "0123456789ab", newId: () => "v" });
+    const summary = await saves.save("With version");
+    expect(summary.imageVersion).toBe("0123456789ab");
+    expect((await saves.list())[0].imageVersion).toBe("0123456789ab");
+    expect(saves.isOlder(summary)).toBe(false);
+    expect(saves.isOlder({ ...summary, imageVersion: "old" })).toBe(true);
   });
 });

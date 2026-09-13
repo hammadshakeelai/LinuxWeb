@@ -34,22 +34,32 @@ export function defaultSaveName(ms: number): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+// A save only restores into the image it was made on (network spec section 4).
+export function isOlderSave(summary: Pick<MachineSummary, "imageVersion">, current: string | null): boolean {
+  return current !== null && summary.imageVersion !== current;
+}
+
 export interface MachineSavesDeps {
   vm: Pick<Vm, "saveState" | "restoreState">;
   store: Pick<Store, "listMachines" | "getMachine" | "putMachine" | "renameMachine" | "deleteMachine">;
   now?(): number;
   newId?(): string;
+  imageVersion?: string | null;
 }
 
 export class MachineSaves {
   private readonly deps: Required<MachineSavesDeps>;
 
   constructor(deps: MachineSavesDeps) {
-    this.deps = { now: () => Date.now(), newId: () => crypto.randomUUID(), ...deps };
+    this.deps = { now: () => Date.now(), newId: () => crypto.randomUUID(), imageVersion: null, ...deps };
   }
 
   list(): Promise<MachineSummary[]> {
     return this.deps.store.listMachines();
+  }
+
+  isOlder(summary: MachineSummary): boolean {
+    return isOlderSave(summary, this.deps.imageVersion);
   }
 
   async save(name?: string): Promise<MachineSummary> {
@@ -62,6 +72,7 @@ export class MachineSaves {
       createdAt,
       bytes: data.byteLength,
       data,
+      ...(this.deps.imageVersion ? { imageVersion: this.deps.imageVersion } : {}),
     };
     try {
       await this.deps.store.putMachine(record);
@@ -71,7 +82,13 @@ export class MachineSaves {
       }
       throw error;
     }
-    return { id: record.id, name: record.name, createdAt: record.createdAt, bytes: record.bytes };
+    return {
+      id: record.id,
+      name: record.name,
+      createdAt: record.createdAt,
+      bytes: record.bytes,
+      ...(record.imageVersion ? { imageVersion: record.imageVersion } : {}),
+    };
   }
 
   async restore(id: string): Promise<void> {
