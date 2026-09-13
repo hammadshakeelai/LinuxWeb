@@ -1,0 +1,8 @@
+node_modules
+dist
+image/out
+public/v86
+public/image
+test-results
+playwright-report
+.venv
