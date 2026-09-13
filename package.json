@@ -14,7 +14,7 @@
     "postbuild": "node scripts/copy-image.ts",
     "readme-images": "node scripts/readme-images.ts",
     "preview": "vite preview --port 4173 --strictPort",
-    "lint": "oxlint --deny-warnings src scripts image e2e",
+    "lint": "oxlint --deny-warnings src scripts image e2e relay",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "playwright test",
@@ -27,6 +27,7 @@
     "v86": "0.5.458"
   },
   "devDependencies": {
+    "@mercuryworkshop/wisp-js": "0.5.0",
     "@playwright/test": "^1.63.0",
     "@types/node": "^24.13.4",
     "fake-indexeddb": "^6.2.5",

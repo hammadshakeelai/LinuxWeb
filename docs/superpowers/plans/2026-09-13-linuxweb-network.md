@@ -172,7 +172,7 @@ function upgradeStatus(port: number, origin?: string): Promise<number> {
 }
 
 // Minimal WISP v1 client frames: type, stream id (u32 LE), payload.
-function connectFrame(streamId: number, port: number, host: string): Uint8Array {
+function connectFrame(streamId: number, port: number, host: string): Uint8Array<ArrayBuffer> {
   const name = new TextEncoder().encode(host);
   const frame = new Uint8Array(8 + name.length);
   const view = new DataView(frame.buffer);
@@ -184,7 +184,7 @@ function connectFrame(streamId: number, port: number, host: string): Uint8Array 
   return frame;
 }
 
-function dataFrame(streamId: number, data: Uint8Array): Uint8Array {
+function dataFrame(streamId: number, data: Uint8Array): Uint8Array<ArrayBuffer> {
   const frame = new Uint8Array(5 + data.length);
   const view = new DataView(frame.buffer);
   view.setUint8(0, 0x02);
