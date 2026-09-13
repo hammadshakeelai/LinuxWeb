@@ -117,13 +117,6 @@ await run("node -e 'process.exit(0)' && echo NODE-$((20+22))", "NODE-42", 300_00
 pass("node runs");
 
 await run(
-  "mkdir -p /run/postgresql && chown postgres /run/postgresql && su -s /bin/sh postgres -c 'initdb -D /tmp/pg >/dev/null && pg_ctl -D /tmp/pg -l /tmp/pg.log -w start >/dev/null && pg_ctl -D /tmp/pg -w stop >/dev/null' && echo PG-$((20+22))",
-  "PG-42",
-  900_000,
-);
-pass("PostgreSQL initializes, starts and stops");
-
-await run(
   "rc-service postgresql setup >/dev/null && rc-service postgresql start >/dev/null && psql -U postgres -tAc 'select 20+22' && rc-service postgresql stop >/dev/null && echo PSQL-$((20+22))",
   "PSQL-42",
   900_000,
@@ -131,7 +124,7 @@ await run(
 pass("the help tour's PostgreSQL commands work");
 
 await run(
-  "rm -rf /tmp/pg /tmp/pg.log /tmp/h /tmp/h.c /tmp/a /tmp/a.o /tmp/a.asm /var/lib/postgresql/17 && echo CLEAN-$((20+22))",
+  "rm -rf /tmp/h /tmp/h.c /tmp/a /tmp/a.o /tmp/a.asm /var/lib/postgresql/17 && echo CLEAN-$((20+22))",
   "CLEAN-42",
 );
 
