@@ -24,8 +24,10 @@ RUN sed -i 's/getty 38400 tty1/agetty --autologin root tty1 linux/' /etc/inittab
  && grep -q '^root:x:0:0:root:/root:/bin/bash$' /etc/passwd \
  && setup-hostname localhost
 
+# loopback brings up lo, which PostgreSQL and any server reached at localhost need.
 RUN for i in devfs dmesg mdev hwdrivers; do rc-update add $i sysinit; done \
- && for i in hwclock modules sysctl hostname syslog bootmisc; do rc-update add $i boot; done \
+ && for i in hwclock modules sysctl hostname syslog bootmisc loopback; do rc-update add $i boot; done \
+ && test -e /etc/runlevels/boot/loopback \
  && rc-update add killprocs shutdown
 
 # The helper subtracts this list from /etc/apk/world to find packages a visitor added.

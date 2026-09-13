@@ -116,15 +116,21 @@ pass("valgrind runs");
 await run("node -e 'process.exit(0)' && echo NODE-$((20+22))", "NODE-42", 300_000);
 pass("node runs");
 
-await run(
-  "rc-service postgresql setup >/dev/null && rc-service postgresql start >/dev/null && psql -U postgres -tAc 'select 20+22' && rc-service postgresql stop >/dev/null && echo PSQL-$((20+22))",
-  "PSQL-42",
+// The marker prints whether the commands worked or not, so a failure shows the logs right away.
+const pgOut = await run(
+  "rc-service postgresql setup >/tmp/pg.out 2>&1 && rc-service postgresql start >>/tmp/pg.out 2>&1 && psql -U postgres -tAc 'select 20+22' && rc-service postgresql stop >>/tmp/pg.out 2>&1; echo PSQL-STATUS-$?-END$((20+22))",
+  "END42",
   900_000,
 );
+if (!pgOut.includes("PSQL-STATUS-0-END42")) {
+  const logs = await run("tail -n 40 /tmp/pg.out /var/log/postgresql/postmaster.log; echo LOGS-$((20+22))", "LOGS-42");
+  throw new Error(`The help tour's PostgreSQL commands failed:\n${logs}`);
+}
+assert.match(pgOut, /(^|\n)42\r\n/, "psql prints the query result");
 pass("the help tour's PostgreSQL commands work");
 
 await run(
-  "rm -rf /tmp/h /tmp/h.c /tmp/a /tmp/a.o /tmp/a.asm /var/lib/postgresql/17 && echo CLEAN-$((20+22))",
+  "rm -rf /tmp/pg.out /tmp/h /tmp/h.c /tmp/a /tmp/a.o /tmp/a.asm /var/lib/postgresql/17 && echo CLEAN-$((20+22))",
   "CLEAN-42",
 );
 

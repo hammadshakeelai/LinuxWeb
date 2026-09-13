@@ -550,8 +550,10 @@ RUN sed -i 's/getty 38400 tty1/agetty --autologin root tty1 linux/' /etc/inittab
  && grep -q '^root:x:0:0:root:/root:/bin/bash$' /etc/passwd \
  && setup-hostname localhost
 
+# loopback brings up lo, which PostgreSQL and any server reached at localhost need.
 RUN for i in devfs dmesg mdev hwdrivers; do rc-update add $i sysinit; done \
- && for i in hwclock modules sysctl hostname syslog bootmisc; do rc-update add $i boot; done \
+ && for i in hwclock modules sysctl hostname syslog bootmisc loopback; do rc-update add $i boot; done \
+ && test -e /etc/runlevels/boot/loopback \
  && rc-update add killprocs shutdown
 
 # The helper subtracts this list from /etc/apk/world to find packages a visitor added.
@@ -794,14 +796,20 @@ pass("apt, apt-get, pacman and snap translate to apk, and apk explains it is off
 
 Replace the `su`-based PostgreSQL check and its `pass("PostgreSQL initializes, starts and stops");` line with a check of the commands the help tour documents (initializing a cluster is the slowest step under v86, so it runs once):
 ```ts
-await run(
-  "rc-service postgresql setup >/dev/null && rc-service postgresql start >/dev/null && psql -U postgres -tAc 'select 20+22' && rc-service postgresql stop >/dev/null && echo PSQL-$((20+22))",
-  "PSQL-42",
+// The marker prints whether the commands worked or not, so a failure shows the logs right away.
+const pgOut = await run(
+  "rc-service postgresql setup >/tmp/pg.out 2>&1 && rc-service postgresql start >>/tmp/pg.out 2>&1 && psql -U postgres -tAc 'select 20+22' && rc-service postgresql stop >>/tmp/pg.out 2>&1; echo PSQL-STATUS-$?-END$((20+22))",
+  "END42",
   900_000,
 );
+if (!pgOut.includes("PSQL-STATUS-0-END42")) {
+  const logs = await run("tail -n 40 /tmp/pg.out /var/log/postgresql/postmaster.log; echo LOGS-$((20+22))", "LOGS-42");
+  throw new Error(`The help tour's PostgreSQL commands failed:\n${logs}`);
+}
+assert.match(pgOut, /(^|\n)42\r\n/, "psql prints the query result");
 pass("the help tour's PostgreSQL commands work");
 ```
-In the cleanup command that follows, drop `/tmp/pg /tmp/pg.log` and add `/var/lib/postgresql/17` to the `rm -rf` list.
+In the cleanup command that follows, replace `/tmp/pg /tmp/pg.log` with `/tmp/pg.out` and add `/var/lib/postgresql/17` to the `rm -rf` list.
 
 These checks fail until Steps 2–5 are done; they are verified in CI (Step 7).
 
