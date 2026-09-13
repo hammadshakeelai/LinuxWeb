@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { gzipSync } from "node:zlib";
 import { V86 } from "v86";
-import { HOME_ARCHIVE, HOME_VERSION, RESTORED_COUNT, TERMINAL_SIZE } from "../src/protocol.ts";
+import { HOME_ARCHIVE, HOME_VERSION, NETWORK_STATE, PACKAGES_STATUS, RESTORED_COUNT, TERMINAL_SIZE } from "../src/protocol.ts";
 import { vmOptions } from "../src/vm-config.ts";
 import { collectSerial } from "./serial.ts";
 import { listTarGz } from "./tar.ts";
@@ -150,6 +150,19 @@ await run(
 await waitFor(async () => (await readText(RESTORED_COUNT)) === "1", 20_000, "restored count 1");
 await run("cat /root/restored.txt", "restored\r\n");
 pass("helper restores an archive into /root");
+
+// Offline with a restored package list: the helper must not rewrite or reinstall it.
+await emulator.create_file(RESTORED_COUNT, new Uint8Array());
+await run(
+  "rm -rf /tmp/p && mkdir -p /tmp/p/.config/linuxweb && echo nyancat > /tmp/p/.config/linuxweb/packages && tar -czf /tmp/p.tar.gz -C /tmp/p . && mv /tmp/p.tar.gz /.linuxweb/restore.tar.gz",
+  PROMPT,
+);
+await waitFor(async () => (await readText(RESTORED_COUNT)) === "1", 20_000, "restored package list");
+await emulator.create_file(NETWORK_STATE, new TextEncoder().encode("offline"));
+await sleep(8_000);
+await run("cat /root/.config/linuxweb/packages", "nyancat\r\n");
+assert.equal(await readText(PACKAGES_STATUS), "", "no reinstall while offline");
+pass("offline, the helper keeps a restored package list and does not reinstall");
 
 // Spec 9.3: a size written by the host is applied to the serial terminal.
 await emulator.create_file(TERMINAL_SIZE, new TextEncoder().encode("40 100"));

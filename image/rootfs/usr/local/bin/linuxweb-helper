@@ -1,6 +1,10 @@
 #!/bin/sh
-# Exchanges files with the LinuxWeb page through /.linuxweb (spec section 5).
+# Exchanges files with the LinuxWeb page through /.linuxweb
+# (v1 spec section 5; network spec section 4).
 DIR=/.linuxweb
+SHARE=/usr/local/share/linuxweb
+PACKAGES=/root/.config/linuxweb/packages
+LOG=/var/log/linuxweb-packages.log
 mkdir -p "$DIR"
 [ -f "$DIR/home.version" ] || echo 0 > "$DIR/home.version"
 
@@ -12,8 +16,50 @@ write_atomic() { # write_atomic <file> <content>
   printf '%s\n' "$2" > "$1.tmp" && mv "$1.tmp" "$1"
 }
 
+# Packages in /etc/apk/world that the image didn't have, plus names that failed to reinstall.
+wanted_packages() {
+  {
+    sort -u /etc/apk/world | grep -vxF -f "$SHARE/base-world"
+    printf '%s\n' $failed_names
+  } | sed '/^$/d' | sort -u
+}
+
+reinstall() {
+  missing=""
+  for pkg in $(cat "$PACKAGES"); do
+    /sbin/apk info -e "$pkg" >/dev/null 2>&1 || missing="$missing $pkg"
+  done
+  set -- $missing
+  [ $# -eq 0 ] && return
+  run=$((run + 1))
+  total=$#
+  write_atomic "$DIR/packages-status" "$run installing $total 0"
+  failed=0
+  for pkg in "$@"; do
+    echo "== apk add $pkg ($(date))" >> "$LOG"
+    if ! /sbin/apk add "$pkg" >> "$LOG" 2>&1; then
+      failed=$((failed + 1))
+      failed_names="$failed_names $pkg"
+    fi
+  done
+  write_atomic "$DIR/packages-status" "$run done $total $failed"
+}
+
+track() {
+  wanted=$(wanted_packages)
+  saved=$(cat "$PACKAGES" 2>/dev/null)
+  if [ "$wanted" != "$saved" ]; then
+    mkdir -p "$(dirname "$PACKAGES")"
+    printf '%s\n' "$wanted" | sed '/^$/d' > "$PACKAGES.tmp" && mv "$PACKAGES.tmp" "$PACKAGES"
+  fi
+}
+
 last_listing=""
 last_size=""
+dhcp_done=""
+reinstall_done=""
+failed_names=""
+run=0
 
 while true; do
   if [ -s "$DIR/restore.tar.gz" ]; then
@@ -40,6 +86,24 @@ while true; do
       write_atomic "$DIR/home.version" "$(( $(cat "$DIR/home.version") + 1 ))"
     fi
     last_listing="$current"
+  fi
+
+  # The page writes network only after the home-folder restore, so a saved
+  # package list is always in place before anything below reads or rewrites it.
+  if [ -f "$DIR/network" ]; then
+    if [ "$(cat "$DIR/network")" = online ] && [ -z "$dhcp_done" ]; then
+      ip link set eth0 up 2>/dev/null
+      udhcpc -i eth0 -n -q -t 5 >/dev/null 2>&1 && dhcp_done=1
+    fi
+    if [ -z "$reinstall_done" ]; then
+      if [ ! -s "$PACKAGES" ]; then
+        reinstall_done=1
+      elif [ -n "$dhcp_done" ]; then
+        reinstall
+        reinstall_done=1
+      fi
+    fi
+    [ -n "$reinstall_done" ] && track
   fi
 
   sleep 2
