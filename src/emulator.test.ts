@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { DownloadError, browserVmOptions, startVm, type V86Like } from "./emulator.ts";
+import { DownloadError, MemoryError, browserVmOptions, isMemoryError, startVm, type V86Like } from "./emulator.ts";
 
 class FakeV86 implements V86Like {
   listeners = new Map<string, Array<(argument: unknown) => void>>();
@@ -45,6 +45,48 @@ describe("startVm", () => {
     await expect(started).rejects.toBeInstanceOf(DownloadError);
     expect(fake.destroy).toHaveBeenCalled();
   });
+
+  it("rejects with MemoryError when creating the emulator runs out of memory", async () => {
+    const started = startVm(
+      {},
+      {
+        create: () => {
+          throw new RangeError("WebAssembly.Memory(): could not allocate memory");
+        },
+        watchErrors: () => () => {},
+      },
+    );
+    await expect(started).rejects.toBeInstanceOf(MemoryError);
+  });
+
+  it("rejects with MemoryError when v86 reports an allocation failure later", async () => {
+    const fake = new FakeV86();
+    let report: ((reason: unknown) => void) | undefined;
+    const unwatch = vi.fn();
+    const started = startVm(
+      {},
+      {
+        create: () => fake,
+        watchErrors: (onError) => {
+          report = onError;
+          return unwatch;
+        },
+      },
+    );
+    report?.(new Error("some unrelated error"));
+    report?.(new RangeError("out of memory"));
+    await expect(started).rejects.toBeInstanceOf(MemoryError);
+    expect(unwatch).toHaveBeenCalled();
+  });
+});
+
+describe("isMemoryError", () => {
+  it("recognizes allocation failures only", () => {
+    expect(isMemoryError(new RangeError("anything"))).toBe(true);
+    expect(isMemoryError(new Error("Out of memory"))).toBe(true);
+    expect(isMemoryError("could not allocate memory")).toBe(true);
+    expect(isMemoryError(new Error("memory access out of bounds"))).toBe(false);
+  });
 });
 
 describe("browserVmOptions", () => {
@@ -54,5 +96,13 @@ describe("browserVmOptions", () => {
     expect(options.bios).toEqual({ url: "/LinuxWeb/bios/seabios.bin" });
     expect(options.initial_state).toEqual({ url: "/LinuxWeb/image/state.bin.zst" });
     expect(options.filesystem).toEqual({ baseurl: "/LinuxWeb/image/rootfs/", basefs: "/LinuxWeb/image/fs.json" });
+  });
+
+  it("adds the relay only when one is given", () => {
+    expect(browserVmOptions("/LinuxWeb/").net_device).toEqual({ type: "virtio" });
+    expect(browserVmOptions("/LinuxWeb/", "wisps://relay.example.com/").net_device).toEqual({
+      type: "virtio",
+      relay_url: "wisps://relay.example.com/",
+    });
   });
 });
