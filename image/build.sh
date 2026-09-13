@@ -23,6 +23,8 @@ rm "$OUT/rootfs.tar"
 
 node build-state.ts
 zstd -19 --rm -f "$OUT/state.bin" -o "$OUT/state.bin.zst"
+# The page marks machine saves made on a different image as older (network spec section 4).
+cat "$OUT/fs.json" "$OUT/state.bin.zst" | sha256sum | cut -c1-12 > "$OUT/version.txt"
 
 node test-image.ts
 du -sh "$OUT" "$OUT/rootfs" "$OUT/state.bin.zst"

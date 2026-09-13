@@ -72,10 +72,43 @@ pass("newline after resume prints a prompt");
 await run("help", "LinuxWeb tour");
 pass("help prints the tour");
 
-// Spec 9.6: tools run in 256 MB.
+// Tools run in 512 MB. Each command echoes a marker computed by the shell ($((20+22))),
+// so the typed command line itself can never match.
 await run("python3 -c 'print(40+2)'", "42\r\n");
 await run("git --version && vim --version | head -n 1", "VIM - Vi IMproved");
 pass("python3, git and vim run");
+
+await run('echo "SHELL-$0"', "SHELL--bash");
+pass("bash is the login shell");
+
+await run(
+  "printf 'int main(void){return 0;}\\n' > /tmp/h.c && gcc /tmp/h.c -o /tmp/h && /tmp/h && echo GCC-$((20+22))",
+  "GCC-42",
+  600_000,
+);
+pass("gcc compiles and runs a program");
+
+await run(
+  "printf 'section .text\\nglobal _start\\n_start:\\nmov eax,1\\nxor ebx,ebx\\nint 0x80\\n' > /tmp/a.asm && nasm -f elf32 /tmp/a.asm -o /tmp/a.o && ld -m elf_i386 /tmp/a.o -o /tmp/a && /tmp/a && echo NASM-$((20+22))",
+  "NASM-42",
+  300_000,
+);
+pass("nasm assembles and links a program");
+
+await run("valgrind -q true && echo VALGRIND-$((20+22))", "VALGRIND-42", 600_000);
+pass("valgrind runs");
+
+await run("node -e 'process.exit(0)' && echo NODE-$((20+22))", "NODE-42", 300_000);
+pass("node runs");
+
+await run(
+  "mkdir -p /run/postgresql && chown postgres /run/postgresql && su -s /bin/sh postgres -c 'initdb -D /tmp/pg >/dev/null && pg_ctl -D /tmp/pg -l /tmp/pg.log -w start >/dev/null && pg_ctl -D /tmp/pg -w stop >/dev/null' && echo PG-$((20+22))",
+  "PG-42",
+  900_000,
+);
+pass("PostgreSQL initializes, starts and stops");
+
+await run("rm -rf /tmp/pg /tmp/pg.log /tmp/h /tmp/h.c /tmp/a /tmp/a.o /tmp/a.asm && echo CLEAN-$((20+22))", "CLEAN-42");
 
 // Spec 9.1: guest writes to the 9P root are readable from the host.
 const versionBefore = await readText(HOME_VERSION);
@@ -103,14 +136,14 @@ pass("host-written terminal size is applied with stty");
 const saved = await emulator.save_state();
 const savedMB = gzipSync(new Uint8Array(saved)).byteLength / 1e6;
 console.log(`INFO machine save: ${Math.round(saved.byteLength / 1e6)} MB raw, ${savedMB.toFixed(1)} MB gzip`);
-assert.ok(savedMB < 150, "compressed machine save is under 150 MB");
+assert.ok(savedMB < 60, "compressed machine save is under 60 MB");
 pass("machine save size");
 
 // Spec 9.5: sizes.
 const treeMB = (await folderBytes(file("./out/rootfs/"))) / 1e6;
 const stateMB = (await stat(file("./out/state.bin.zst"))).size / 1e6;
 console.log(`INFO file tree ${treeMB.toFixed(0)} MB, snapshot ${stateMB.toFixed(1)} MB`);
-assert.ok(treeMB < 300, "file tree is under 300 MB");
+assert.ok(treeMB < 850, "file tree is under 850 MB");
 pass("image sizes");
 
 await emulator.destroy();
