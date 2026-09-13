@@ -1,0 +1,47 @@
+:root {
+  --putty: #d9d2c0;
+  --panel: #c9c1ad;
+  --hi: #f4efe2;
+  --lo: #8a8472;
+  --dark: #5c584b;
+  --ink: #1d1d1d;
+  --title-a: #000080;
+  --title-b: #1084d0;
+  --screen: #101010;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--putty); color: var(--ink); font: 13px Tahoma, Verdana, "Segoe UI", sans-serif; }
+#app { height: 100%; padding: 12px; display: flex; }
+.window { position: relative; flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--panel); border: 2px solid; border-color: var(--hi) var(--lo) var(--lo) var(--hi); }
+.title-bar { background: linear-gradient(90deg, var(--title-a), var(--title-b)); color: #fff; font-weight: bold; padding: 4px 8px; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px; }
+.status { margin-left: auto; color: #3d3a30; min-height: 1em; }
+.bevel-button { font: inherit; color: var(--ink); background: var(--panel); border: 2px solid; border-color: var(--hi) var(--dark) var(--dark) var(--hi); padding: 3px 10px; cursor: pointer; }
+.bevel-button:active, .bevel-button.is-pressed { border-color: var(--dark) var(--hi) var(--hi) var(--dark); }
+.bevel-button:disabled { color: var(--lo); cursor: default; }
+.bevel-button:focus-visible { outline: 2px dotted var(--ink); outline-offset: -5px; }
+.screen { position: relative; flex: 1; min-height: 0; margin: 0 6px 6px; border: 2px solid; border-color: var(--lo) var(--hi) var(--hi) var(--lo); background: var(--screen); }
+.terminal { position: absolute; inset: 6px; }
+/* xterm.js scrolls with its own scrollbar; hide the native one and match the leftover strip to the screen. */
+.terminal .xterm-viewport { background-color: var(--screen); scrollbar-width: none; }
+.boot { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; color: #d6d6d6; background: var(--screen); z-index: 1; }
+.boot[hidden] { display: none; }
+.progress { width: min(320px, 80%); height: 18px; border: 2px solid; border-color: var(--lo) var(--hi) var(--hi) var(--lo); background: #fff; }
+.progress > div { height: 100%; width: 0; background: var(--title-a); }
+.touch-keys { display: none; gap: 4px; padding: 0 6px 6px; overflow-x: auto; }
+@media (pointer: coarse) { .touch-keys { display: flex; } }
+.exit-fullscreen { display: none; }
+.window:fullscreen { border: 0; }
+.window:fullscreen .title-bar, .window:fullscreen .toolbar, .window:fullscreen .touch-keys { display: none; }
+.window:fullscreen .screen { margin: 0; border: 0; }
+.window:fullscreen .exit-fullscreen { display: block; position: absolute; top: 8px; right: 8px; z-index: 2; opacity: 0.75; }
+dialog { padding: 0; border: 2px solid; border-color: var(--hi) var(--lo) var(--lo) var(--hi); background: var(--panel); color: var(--ink); max-width: min(560px, 92vw); }
+dialog::backdrop { background: rgba(0, 0, 0, 0.35); }
+.dialog-body { padding: 12px; }
+.dialog-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; padding: 0 12px 12px; }
+.help-text { font-family: Consolas, "DejaVu Sans Mono", monospace; white-space: pre; overflow-x: auto; margin: 0; }
+.saves-list { list-style: none; margin: 0; padding: 0; min-width: min(520px, 80vw); }
+.saves-list li { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--lo); }
+.saves-list .name { flex: 1 1 160px; }
+.text-input { font: inherit; width: 100%; padding: 3px; border: 2px solid; border-color: var(--lo) var(--hi) var(--hi) var(--lo); }
+@media (max-width: 600px) { #app { padding: 0; } }
