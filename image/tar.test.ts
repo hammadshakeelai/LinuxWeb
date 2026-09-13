@@ -10,7 +10,8 @@ describe("listTarGz", () => {
     const dir = mkdtempSync(join(tmpdir(), "linuxweb-tar-"));
     writeFileSync(join(dir, "a.txt"), "hello");
     writeFileSync(join(dir, "b.txt"), "x".repeat(1500));
-    execFileSync("tar", ["-czf", join(dir, "out.tar.gz"), "-C", dir, "a.txt", "b.txt"]);
+    // Relative names only: GNU tar treats "C:\..." as a remote host.
+    execFileSync("tar", ["-czf", "out.tar.gz", "a.txt", "b.txt"], { cwd: dir });
     expect(listTarGz(readFileSync(join(dir, "out.tar.gz")))).toEqual(["a.txt", "b.txt"]);
   });
 });
