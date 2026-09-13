@@ -1,13 +1,18 @@
 import helpText from "../image/rootfs/usr/local/share/linuxweb/help.txt?raw";
-import { browserVmOptions, startVm, type Vm } from "./emulator.ts";
+import { MemoryError, browserVmOptions, startVm, type Vm } from "./emulator.ts";
 import { HomeSync, type HomeStatus } from "./home.ts";
+import { NetworkMonitor, readSavedRelay, relayUrl, writeSavedRelay } from "./network.ts";
+import { PackagesWatcher } from "./packages-status.ts";
+import { POLL_INTERVAL_MS } from "./protocol.ts";
 import { MachineSaves } from "./saves.ts";
 import { Store } from "./storage.ts";
 import { acquireSaveLock } from "./tab-lock.ts";
 import { SizeReporter, createTerminal } from "./terminal.ts";
 import { showDialog, showMessage } from "./ui/dialogs.ts";
+import { openNetworkDialog } from "./ui/network-dialog.ts";
+import { networkButtonLabel } from "./ui/network-text.ts";
 import { openSavesDialog } from "./ui/saves-dialog.ts";
-import { statusText } from "./ui/status.ts";
+import { statusLine } from "./ui/status.ts";
 import "./ui/theme.css";
 import { createTouchKeys } from "./ui/touch-keys.ts";
 import { createWindow, type WindowView } from "./ui/window.ts";
@@ -15,17 +20,39 @@ import { welcomeText } from "./welcome.ts";
 
 const savingOff = () => showMessage("LinuxWeb", "Saving is off in this browser");
 
-async function boot(view: WindowView): Promise<Vm> {
+function browserStorage(): Storage | undefined {
+  try {
+    return window.localStorage;
+  } catch {
+    return undefined;
+  }
+}
+
+async function loadImageVersion(base: string): Promise<string | null> {
+  try {
+    const response = await fetch(`${base}image/version.txt`);
+    if (!response.ok) return null;
+    return (await response.text()).trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+async function boot(view: WindowView, relay: string | null): Promise<Vm | null> {
   for (;;) {
     view.showBoot("Starting Linux…");
     try {
-      const vm = await startVm(browserVmOptions(import.meta.env.BASE_URL), {
+      const vm = await startVm(browserVmOptions(import.meta.env.BASE_URL, relay), {
         onProgress: (loaded, total) => view.setProgress(loaded, total),
       });
       view.hideBoot();
       return vm;
-    } catch {
+    } catch (error) {
       view.hideBoot();
+      if (error instanceof MemoryError) {
+        await showMessage("LinuxWeb", error.message);
+        return null;
+      }
       await showDialog("LinuxWeb", "Couldn't download Linux. Check your connection.", [
         { label: "Retry", value: "retry", primary: true },
       ]);
@@ -47,15 +74,23 @@ async function main() {
   const touchKeys = createTouchKeys((data) => vm?.sendSerial(data));
   view.appendTouchKeys(touchKeys);
 
+  const packages = new PackagesWatcher({
+    readFile: (path) => (vm ? vm.readFile(path) : Promise.reject(new Error("Linux has not started"))),
+  });
   let homeStatus: HomeStatus = { kind: "starting" };
   const renderStatus = () => {
-    view.status.textContent = statusText(homeStatus, Date.now());
+    view.status.textContent = statusLine(packages.text(), homeStatus, Date.now());
   };
   const setStatus = (status: HomeStatus) => {
     homeStatus = status;
     renderStatus();
   };
   setInterval(renderStatus, 1000);
+
+  const storage = browserStorage();
+  const savedRelay = readSavedRelay(storage);
+  const relay = relayUrl(savedRelay, import.meta.env.VITE_RELAY_URL);
+  const imageVersion = loadImageVersion(import.meta.env.BASE_URL);
 
   let store: Store | undefined;
   try {
@@ -64,8 +99,10 @@ async function main() {
     setStatus({ kind: "off" });
   }
 
-  vm = await boot(view);
-  const running = vm;
+  const booted = await boot(view, relay);
+  if (!booted) return;
+  vm = booted;
+  const running = booted;
 
   let pending: number[] = [];
   running.onSerialByte((byte) => {
@@ -78,6 +115,16 @@ async function main() {
     pending.push(byte);
   });
   terminal.onInput((data) => running.sendSerial(touchKeys.transformInput(data)));
+
+  const monitor = new NetworkMonitor({
+    relay,
+    writeGuest: (path, data) => running.createFile(path, data),
+    onChange: (state) => {
+      view.buttons.network.textContent = networkButtonLabel(state);
+    },
+  });
+  // Probe while the home folder restores; tell the guest only after the restore.
+  const firstCheck = monitor.check();
 
   let home: HomeSync | undefined;
   let restored: number | null = null;
@@ -93,8 +140,20 @@ async function main() {
     setStatus({ kind: "paused-other-tab" });
   }
 
-  terminal.writeText(welcomeText(restored));
+  const network = await firstCheck;
+  try {
+    await monitor.publish(network);
+  } catch {
+    // The next check writes the state again.
+  }
+  monitor.start();
+
+  terminal.writeText(welcomeText(restored, network === "online" ? "online" : "offline"));
   running.sendSerial("\n");
+
+  setInterval(() => {
+    packages.pollOnce().then(renderStatus, () => {});
+  }, POLL_INTERVAL_MS);
 
   const reporter = new SizeReporter((path, data) => running.createFile(path, data));
   const refit = () => {
@@ -105,7 +164,7 @@ async function main() {
   refit();
   terminal.focus();
 
-  const saves = store ? new MachineSaves({ vm: running, store }) : undefined;
+  const saves = store ? new MachineSaves({ vm: running, store, imageVersion: await imageVersion }) : undefined;
 
   view.buttons.save.addEventListener("click", async () => {
     if (!saves) return savingOff();
@@ -142,6 +201,21 @@ async function main() {
     }
     if (choice === "keep" || choice === "clear") location.reload();
     else terminal.focus();
+  });
+
+  view.buttons.network.addEventListener("click", async () => {
+    const state = await monitor.refresh().catch(() => monitor.state);
+    await openNetworkDialog({
+      state,
+      relay,
+      saved: savedRelay,
+      save: async (url) => {
+        writeSavedRelay(storage, url);
+        await home?.flush();
+        location.reload();
+      },
+    });
+    terminal.focus();
   });
 
   // iPhone Safari has no element full screen; hide the button instead of letting it do nothing.

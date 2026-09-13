@@ -44,4 +44,7 @@ dialog::backdrop { background: rgba(0, 0, 0, 0.35); }
 .saves-list li { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--lo); }
 .saves-list .name { flex: 1 1 160px; }
 .text-input { font: inherit; width: 100%; padding: 3px; border: 2px solid; border-color: var(--lo) var(--hi) var(--hi) var(--lo); }
+.network-status { margin: 0 0 10px; }
+.field-error { color: #8b0000; margin: 6px 0 0; }
+.dialog-note { margin: 10px 0 0; max-width: 46ch; color: #3d3a30; }
 @media (max-width: 600px) { #app { padding: 0; } }

@@ -36,9 +36,11 @@ export async function openSavesDialog(saves: MachineSaves, onRestored: () => voi
       const li = document.createElement("li");
       const name = document.createElement("span");
       name.className = "name";
-      name.textContent = `${save.name} (${(save.bytes / 1e6).toFixed(1)} MB)`;
+      const older = saves.isOlder(save);
+      name.textContent = `${save.name}${older ? " (older LinuxWeb)" : ""} (${(save.bytes / 1e6).toFixed(1)} MB)`;
       li.append(name);
-      for (const action of ["Restore", "Rename", "Delete", "Download"]) {
+      const actions = older ? ["Download", "Delete"] : ["Restore", "Rename", "Delete", "Download"];
+      for (const action of actions) {
         const node = document.createElement("button");
         node.type = "button";
         node.className = "bevel-button";

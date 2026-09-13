@@ -16,7 +16,8 @@ await app.locator(".xterm-rows").getByText("localhost:~#").first().waitFor({ tim
 await app.locator(".xterm-screen").click();
 await app.keyboard.type("help");
 await app.keyboard.press("Enter");
-await app.locator(".xterm-rows").getByText("LinuxWeb tour").waitFor({ timeout: 60_000 });
+// The tour is taller than the window, so wait for its last line rather than its heading.
+await app.locator(".xterm-rows").getByText("Compiling and starting databases is slow").waitFor({ timeout: 60_000 });
 await app.screenshot({ path: root("docs/screenshot.png") });
 
 await browser.close();

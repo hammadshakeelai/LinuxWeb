@@ -17,7 +17,7 @@ export interface WindowView {
   root: HTMLElement;
   terminalHost: HTMLElement;
   status: HTMLElement;
-  buttons: Record<"save" | "saves" | "reset" | "fullscreen" | "help" | "exitFullscreen", HTMLButtonElement>;
+  buttons: Record<"save" | "saves" | "reset" | "fullscreen" | "network" | "help" | "exitFullscreen", HTMLButtonElement>;
   showBoot(message: string): void;
   setProgress(loadedBytes: number, totalBytes: number): void;
   hideBoot(): void;
@@ -33,6 +33,7 @@ export function createWindow(app: HTMLElement): WindowView {
     saves: button("Saves"),
     reset: button("Reset"),
     fullscreen: button("Full screen"),
+    network: button("Network: Offline"),
     help: button("Help"),
     exitFullscreen: button("Exit full screen"),
   };
@@ -40,7 +41,7 @@ export function createWindow(app: HTMLElement): WindowView {
   const status = el("span", "status");
   status.dataset.testid = "status";
   status.setAttribute("role", "status");
-  toolbar.append(buttons.save, buttons.saves, buttons.reset, buttons.fullscreen, buttons.help, status);
+  toolbar.append(buttons.save, buttons.saves, buttons.reset, buttons.fullscreen, buttons.network, buttons.help, status);
 
   const screen = el("div", "screen");
   const terminalHost = el("div", "terminal");

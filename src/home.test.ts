@@ -95,4 +95,37 @@ describe("HomeSync", () => {
     });
     await expect(sync.restore(2000)).rejects.toThrow("Timed out restoring the home folder");
   });
+
+  it("flush waits for a save in progress, then saves the latest change", async () => {
+    const guest = fakeGuest({ [HOME_VERSION]: text("1\n"), [HOME_ARCHIVE]: text("a") });
+    let release: (() => void) | undefined;
+    const putHome = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve;
+        }),
+    );
+    const sync = new HomeSync({
+      vm: guest.vm,
+      store: { getHome: async () => undefined, putHome },
+      onStatus: () => {},
+      now: () => 1000,
+      // A real macrotask, so flush's wait loop lets vi.waitFor's timers run.
+      sleep: () => new Promise((resolve) => setTimeout(resolve, 0)),
+      persist: async () => true,
+    });
+    await sync.restore();
+    guest.map.set(HOME_VERSION, text("2\n"));
+    const first = sync.pollOnce();
+    guest.map.set(HOME_VERSION, text("3\n"));
+    guest.map.set(HOME_ARCHIVE, text("latest"));
+    const flushing = sync.flush();
+    await vi.waitFor(() => expect(putHome).toHaveBeenCalledTimes(1));
+    release?.();
+    await first;
+    await vi.waitFor(() => expect(putHome).toHaveBeenCalledTimes(2));
+    release?.();
+    await flushing;
+    expect(putHome).toHaveBeenLastCalledWith({ data: text("latest"), bytes: 6, savedAt: 1000 });
+  });
 });

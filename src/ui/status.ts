@@ -20,3 +20,7 @@ export function statusText(status: HomeStatus, now: number): string {
       return "Saving paused: LinuxWeb is open in another tab";
   }
 }
+
+export function statusLine(packagesText: string, home: HomeStatus, now: number): string {
+  return packagesText || statusText(home, now);
+}

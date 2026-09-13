@@ -1,0 +1,5 @@
+auto lo
+iface lo inet loopback
+
+# No "auto eth0": the helper runs DHCP when the page says the network is online.
+iface eth0 inet dhcp

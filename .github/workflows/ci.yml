@@ -42,3 +42,31 @@ jobs:
       - run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
+
+  network:
+    name: Network (uses the internet)
+    needs: image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: linuxweb-image
+
+      - name: Unpack the image
+        run: mkdir -p image && tar -xf image-out.tar -C image
+
+      - run: node image/test-network.ts
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test network.spec.ts
+        env:
+          LINUXWEB_NETWORK_E2E: "1"

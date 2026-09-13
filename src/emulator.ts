@@ -31,6 +31,19 @@ export class DownloadError extends Error {
   }
 }
 
+export class MemoryError extends Error {
+  constructor() {
+    super("This device doesn't have enough free memory to run LinuxWeb (it needs 512 MB).");
+    this.name = "MemoryError";
+  }
+}
+
+export function isMemoryError(reason: unknown): boolean {
+  if (reason instanceof RangeError) return true;
+  const message = reason instanceof Error ? reason.message : String(reason);
+  return /out of memory|could not allocate/i.test(message);
+}
+
 interface ProgressEvent {
   file_name: string;
   loaded: number;
@@ -38,7 +51,19 @@ interface ProgressEvent {
   lengthComputable: boolean;
 }
 
-export function browserVmOptions(base: string): V86Options {
+function browserErrorWatcher(onError: (reason: unknown) => void): () => void {
+  if (typeof window === "undefined") return () => {};
+  const onRejection = (event: PromiseRejectionEvent) => onError(event.reason);
+  const onErrorEvent = (event: ErrorEvent) => onError(event.error ?? event.message);
+  window.addEventListener("unhandledrejection", onRejection);
+  window.addEventListener("error", onErrorEvent);
+  return () => {
+    window.removeEventListener("unhandledrejection", onRejection);
+    window.removeEventListener("error", onErrorEvent);
+  };
+}
+
+export function browserVmOptions(base: string, relayUrl?: string | null): V86Options {
   return vmOptions({
     wasm: `${base}v86/v86.wasm`,
     bios: `${base}bios/seabios.bin`,
@@ -46,6 +71,7 @@ export function browserVmOptions(base: string): V86Options {
     baseurl: `${base}image/rootfs/`,
     basefs: `${base}image/fs.json`,
     state: `${base}image/state.bin.zst`,
+    ...(relayUrl ? { relayUrl } : {}),
   });
 }
 
@@ -54,13 +80,30 @@ export function startVm(
   start: {
     onProgress?: (loadedBytes: number, totalBytes: number) => void;
     create?: (options: V86Options) => V86Like;
+    watchErrors?: (onError: (reason: unknown) => void) => () => void;
   } = {},
 ): Promise<Vm> {
   const create = start.create ?? ((o: V86Options) => new V86(o) as unknown as V86Like);
-  const emulator = create(options);
+  const watchErrors = start.watchErrors ?? browserErrorWatcher;
   const files = new Map<string, { loaded: number; total: number }>();
 
   return new Promise((resolve, reject) => {
+    // v86 allocates its memory asynchronously, so an allocation failure surfaces as an unhandled error.
+    const unwatch = watchErrors((reason) => {
+      if (!isMemoryError(reason)) return;
+      unwatch();
+      reject(new MemoryError());
+    });
+
+    let emulator: V86Like;
+    try {
+      emulator = create(options);
+    } catch (error) {
+      unwatch();
+      reject(isMemoryError(error) ? new MemoryError() : error);
+      return;
+    }
+
     emulator.add_listener("download-progress", (argument) => {
       const event = argument as ProgressEvent;
       files.set(event.file_name, { loaded: event.loaded, total: event.lengthComputable ? event.total : event.loaded });
@@ -73,11 +116,15 @@ export function startVm(
       start.onProgress?.(loaded, total);
     });
     emulator.add_listener("download-error", (argument) => {
+      unwatch();
       void emulator.destroy();
       reject(new DownloadError((argument as { file_name: string }).file_name));
     });
     // v86 fires emulator-ready before it restores initial_state; only emulator-loaded is safe.
-    emulator.add_listener("emulator-loaded", () => resolve(wrap(emulator)));
+    emulator.add_listener("emulator-loaded", () => {
+      unwatch();
+      resolve(wrap(emulator));
+    });
   });
 }
 

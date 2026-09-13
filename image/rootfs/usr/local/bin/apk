@@ -1,0 +1,17 @@
+#!/bin/sh
+# Explains why apk can't download while LinuxWeb is offline, then runs the real apk.
+for arg in "$@"; do
+  case "$arg" in
+    -*) ;;
+    *) sub=$arg; break ;;
+  esac
+done
+case "$sub" in
+  add|update|upgrade|fetch)
+    if [ "$(cat /.linuxweb/network 2>/dev/null)" != online ]; then
+      echo "LinuxWeb is offline: set a relay with the Network button to install packages." >&2
+      exit 1
+    fi
+    ;;
+esac
+exec /sbin/apk "$@"

@@ -1,0 +1,2 @@
+#!/bin/sh
+LINUXWEB_APT_NAME=apt-get exec /usr/local/bin/apt "$@"

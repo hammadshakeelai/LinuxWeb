@@ -1,0 +1,9 @@
+#!/bin/sh
+# Snaps need systemd; try the Alpine package with the same name instead.
+if [ "$1" = install ] && [ $# -gt 1 ]; then
+  shift
+  echo "Snaps need systemd, which LinuxWeb doesn't have. Trying apk add $* instead."
+  exec apk add "$@"
+fi
+echo "Snaps need systemd, which LinuxWeb doesn't have. snap install NAME tries apk add NAME instead." >&2
+exit 1

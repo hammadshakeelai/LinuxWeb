@@ -8,12 +8,38 @@ Moving around
 
 Editing a file
   nano notes.txt   edit notes.txt (Ctrl+O saves, Ctrl+X quits)
+  nvim notes.txt   Neovim, if you know Vim (:wq saves and quits)
 
-Running Python
-  python3          start Python (type exit() to leave)
+Running code
   python3 hi.py    run a Python file
+  node app.js      run a JavaScript file
+  gcc hi.c -o hi   compile C, then run it with ./hi
+  nasm -f elf32 hi.asm && ld -m elf_i386 hi.o -o hi
+                   assemble and link 32-bit assembly
+
+PostgreSQL
+  rc-service postgresql setup    create the database (once)
+  rc-service postgresql start    start it
+  psql -U postgres               connect
+
+Networking
+  The Network button in the toolbar shows Online or Offline.
+  Online, these work: apk add, pip install, npm install, git clone,
+  curl https://..., ssh user@host. Nothing can connect in to this machine.
+
+Installing software
+  apk add htop     install a package (apt install and pacman -S work too)
+  apk search NAME  find a package
+  Packages you install come back on your next visit when you're online.
+
+Fun
+  cmatrix          falling characters (q quits)
+  sl               a steam locomotive
+  figlet hello     big letters
 
 Where your files are saved
   Only files in /root, your home folder, are saved in this browser.
-  Installed packages and changes anywhere else reset on your next visit.
+  Other changes reset on your next visit, except packages you installed.
   Save machine in the toolbar keeps everything, including open programs.
+
+Compiling and starting databases is slow in a browser: give it a moment.

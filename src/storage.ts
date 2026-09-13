@@ -9,6 +9,7 @@ export interface MachineSummary {
   name: string;
   createdAt: number;
   bytes: number;
+  imageVersion?: string;
 }
 
 export interface MachineRecord extends MachineSummary {
@@ -69,7 +70,7 @@ export class Store {
   async listMachines(): Promise<MachineSummary[]> {
     const all: MachineRecord[] = await done(this.db.transaction(MACHINES).objectStore(MACHINES).getAll());
     return all
-      .map(({ id, name, createdAt, bytes }) => ({ id, name, createdAt, bytes }))
+      .map(({ id, name, createdAt, bytes, imageVersion }) => ({ id, name, createdAt, bytes, ...(imageVersion ? { imageVersion } : {}) }))
       .toSorted((a, b) => b.createdAt - a.createdAt);
   }
 

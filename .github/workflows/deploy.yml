@@ -42,6 +42,8 @@ jobs:
         run: mkdir -p image && tar -xf image-out.tar -C image
 
       - run: npm run build
+        env:
+          VITE_RELAY_URL: ${{ vars.RELAY_URL }}
 
       - name: Check site size (GitHub Pages allows 1 GB)
         run: |

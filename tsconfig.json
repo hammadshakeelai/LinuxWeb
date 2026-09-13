@@ -12,5 +12,5 @@
     "verbatimModuleSyntax": true,
     "skipLibCheck": true
   },
-  "include": ["src", "scripts", "image", "e2e", "vite.config.ts", "vitest.config.ts", "playwright.config.ts"]
+  "include": ["src", "scripts", "image", "e2e", "relay", "vite.config.ts", "vitest.config.ts", "playwright.config.ts"]
 }
