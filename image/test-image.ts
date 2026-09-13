@@ -145,7 +145,7 @@ if (!pgOut.includes("PSQL-STATUS-0-END42")) {
   const logs = await run("tail -n 40 /tmp/pg.out /var/log/postgresql/postmaster.log; echo LOGS-$((20+22))", "LOGS-42");
   throw new Error(`The help tour's PostgreSQL commands failed:\n${logs}`);
 }
-assert.match(pgOut, /(^|\n)42\r\n/, "psql prints the query result");
+assert.match(pgOut, /[\r\n]42\r\n/, "psql prints the query result");
 pass("the help tour's PostgreSQL commands work");
 
 await run(

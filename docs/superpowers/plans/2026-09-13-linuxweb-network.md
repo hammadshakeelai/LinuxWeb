@@ -593,6 +593,101 @@ After the line `zstd -19 --rm -f "$OUT/state.bin" -o "$OUT/state.bin.zst"` add:
 cat "$OUT/fs.json" "$OUT/state.bin.zst" | sha256sum | cut -c1-12 > "$OUT/version.txt"
 ```
 
+- [ ] **Step 4b: Rewrite the Docker export instead of editing it in place**
+
+Found by the image test in CI. `tar -f rootfs.tar --delete ".dockerenv"` (errors hidden) dropped everything after `/usr`, so the image had no `/var`; v1's image has the same gap. `docker export` also leaves `/etc/hosts`, `/etc/hostname` and `/etc/resolv.conf` as empty placeholders, so `localhost` didn't resolve and PostgreSQL couldn't start.
+
+`image/tools/fix-export.py`:
+```python
+#!/usr/bin/env python3
+# Rewrites a `docker export` tar for LinuxWeb: drops /.dockerenv, and replaces the files Docker
+# blanks in every container (hosts, hostname, resolv.conf) with the copies in image/rootfs.
+# Exits non-zero if the export is missing a top-level directory the image needs.
+# Usage: fix-export.py <export.tar> <rootfs.tar> <image/rootfs>
+import io
+import sys
+import tarfile
+from pathlib import Path
+
+DOCKER_FILES = {"etc/hosts", "etc/hostname", "etc/resolv.conf"}
+REQUIRED = ["bin", "etc", "root", "tmp", "usr", "var"]
+
+
+def main(src_path: str, dst_path: str, rootfs: str) -> None:
+    counts: dict[str, int] = {}
+    with tarfile.open(src_path) as src, tarfile.open(dst_path, "w", format=tarfile.PAX_FORMAT) as dst:
+        for member in src:
+            top = member.name.split("/")[0]
+            counts[top] = counts.get(top, 0) + 1
+            if member.name == ".dockerenv":
+                continue
+            if member.name in DOCKER_FILES:
+                data = (Path(rootfs) / member.name).read_bytes()
+                member.size = len(data)
+                member.mode = 0o644
+                dst.addfile(member, io.BytesIO(data))
+                continue
+            dst.addfile(member, src.extractfile(member) if member.isreg() else None)
+
+    print("INFO entries per top-level directory: " + ", ".join(f"{name} {n}" for name, n in sorted(counts.items())))
+    missing = [name for name in REQUIRED if name not in counts]
+    if missing:
+        sys.exit(f"The export is missing: {', '.join(missing)}")
+
+
+if __name__ == "__main__":
+    main(*sys.argv[1:4])
+```
+
+`image/rootfs/etc/hosts`:
+```
+127.0.0.1	localhost localhost.localdomain
+::1		localhost localhost.localdomain
+```
+
+`image/rootfs/etc/hostname`:
+```
+localhost
+```
+
+`image/rootfs/etc/resolv.conf`:
+```
+# udhcpc writes the name server here when LinuxWeb goes online.
+```
+
+In `image/build.sh`, change `docker export linuxweb-export -o "$OUT/rootfs.tar"` to `docker export linuxweb-export -o "$OUT/export.tar"`, and replace the `tar -f "$OUT/rootfs.tar" --delete ".dockerenv" 2>/dev/null || true` line with:
+```bash
+# fix-export.py drops .dockerenv, restores the files Docker blanks (hosts, hostname,
+# resolv.conf), and fails if the export is missing /var or another needed directory.
+echo "INFO /var entries in the export: $(tar -tf "$OUT/export.tar" | grep -c '^var/' || true)"
+python3 tools/fix-export.py "$OUT/export.tar" "$OUT/rootfs.tar" rootfs
+rm "$OUT/export.tar"
+```
+
+In `image/test-image.ts`, add `readFile` to the `node:fs/promises` import, add after `folderBytes`:
+```ts
+// fs.json entries: name, size, mtime, mode, uid, gid, then children, a file name or a link target.
+type FsEntry = [string, number, number, number, number, number, (FsEntry[] | string)?];
+
+function fsJsonHas(entries: FsEntry[], parts: string[]): boolean {
+  const entry = entries.find((e) => e[0] === parts[0]);
+  if (!entry) return false;
+  if (parts.length === 1) return true;
+  return Array.isArray(entry[6]) && fsJsonHas(entry[6], parts.slice(1));
+}
+```
+and after `pass("newline after resume prints a prompt");`:
+```ts
+// Empty directories that packages install, such as PostgreSQL's log directory, must reach fs.json.
+const PACKAGE_DIRS = ["var/empty", "var/log/postgresql", "var/lib/postgresql", "etc/postgresql17"];
+const fsRoot = (JSON.parse(await readFile(file("./out/fs.json"), "utf8")) as { fsroot: FsEntry[] }).fsroot;
+for (const dir of PACKAGE_DIRS) assert.ok(fsJsonHas(fsRoot, dir.split("/")), `fs.json has /${dir}`);
+pass("fs.json has /var and the empty directories packages install");
+
+await run("python3 -c 'import socket; print(\"LOCALHOST\", socket.gethostbyname(\"localhost\"))'", "LOCALHOST 127.0.0.1");
+pass("localhost resolves");
+```
+
 - [ ] **Step 5: Add the tool checks to `image/test-image.ts`**
 
 Replace the block from `// Spec 9.6: tools run in 256 MB.` through `pass("python3, git and vim run");` with:
@@ -806,7 +901,7 @@ if (!pgOut.includes("PSQL-STATUS-0-END42")) {
   const logs = await run("tail -n 40 /tmp/pg.out /var/log/postgresql/postmaster.log; echo LOGS-$((20+22))", "LOGS-42");
   throw new Error(`The help tour's PostgreSQL commands failed:\n${logs}`);
 }
-assert.match(pgOut, /(^|\n)42\r\n/, "psql prints the query result");
+assert.match(pgOut, /[\r\n]42\r\n/, "psql prints the query result");
 pass("the help tour's PostgreSQL commands work");
 ```
 In the cleanup command that follows, replace `/tmp/pg /tmp/pg.log` with `/tmp/pg.out` and add `/var/lib/postgresql/17` to the `rm -rf` list.
