@@ -1,7 +1,7 @@
 // Resumes image/out/state.bin.zst in Node and checks the things the design relies on
 // (spec section 9). Exits non-zero on the first failure.
 import assert from "node:assert/strict";
-import { readdir, stat } from "node:fs/promises";
+import { readdir, readFile, stat } from "node:fs/promises";
 import { createRequire } from "node:module";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -24,6 +24,16 @@ async function folderBytes(dir: string): Promise<number> {
     total += entry.isDirectory() ? await folderBytes(path) : (await stat(path)).size;
   }
   return total;
+}
+
+// fs.json entries: name, size, mtime, mode, uid, gid, then children, a file name or a link target.
+type FsEntry = [string, number, number, number, number, number, (FsEntry[] | string)?];
+
+function fsJsonHas(entries: FsEntry[], parts: string[]): boolean {
+  const entry = entries.find((e) => e[0] === parts[0]);
+  if (!entry) return false;
+  if (parts.length === 1) return true;
+  return Array.isArray(entry[6]) && fsJsonHas(entry[6], parts.slice(1));
 }
 
 const emulator = new V86(
@@ -68,6 +78,14 @@ function pass(message: string) {
 // Spec 9.2: a newline after resume produces a fresh prompt.
 await run("", PROMPT);
 pass("newline after resume prints a prompt");
+
+// Some packages ship empty directories (PostgreSQL's log directory is one). Report whether
+// they are in fs.json and in the running VM.
+const EMPTY_DIRS = ["home", "mnt", "opt", "srv", "var/empty", "var/log", "var/log/postgresql", "var/lib/postgresql", "etc/postgresql17"];
+const fsRoot = (JSON.parse(await readFile(file("./out/fs.json"), "utf8")) as { fsroot: FsEntry[] }).fsroot;
+console.log(`INFO in fs.json: ${EMPTY_DIRS.map((d) => `/${d} ${fsJsonHas(fsRoot, d.split("/")) ? "yes" : "no"}`).join(", ")}`);
+const dirList = await run(`ls -lnd ${EMPTY_DIRS.map((d) => `/${d}`).join(" ")} 2>&1; echo DIRS-$((20+22))`, "DIRS-42");
+console.log(`INFO in the VM:\n${dirList}`);
 
 await run("help", "LinuxWeb tour");
 pass("help prints the tour");

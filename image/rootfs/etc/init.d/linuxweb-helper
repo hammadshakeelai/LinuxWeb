@@ -3,3 +3,9 @@ description="LinuxWeb helper: saves the home folder and syncs the terminal size"
 command="/usr/local/bin/linuxweb-helper"
 command_background=true
 pidfile="/run/linuxweb-helper.pid"
+
+start_pre() {
+	# PostgreSQL's init script doesn't create its log directory, and the empty one the
+	# package installs is missing in the VM.
+	checkpath -d -m 0750 -o postgres:postgres /var/log/postgresql
+}
