@@ -65,3 +65,8 @@ jobs:
         run: mkdir -p image && tar -xf image-out.tar -C image
 
       - run: node image/test-network.ts
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test network.spec.ts
+        env:
+          LINUXWEB_NETWORK_E2E: "1"

@@ -19,3 +19,8 @@ Bundled into the page. Project: https://github.com/xtermjs/xterm.js. License: MI
 ## Alpine Linux packages
 
 The Linux image published under `/LinuxWeb/image/` is built from `image/Dockerfile` using Alpine Linux 3.21 packages, which are under their own licenses, including the GNU GPL. The exact package list for each build is published at `/LinuxWeb/image/packages.txt`. The corresponding sources are in Alpine's `aports` repository for the 3.21 branch (https://gitlab.alpinelinux.org/alpine/aports/-/tree/3.21-stable) and at https://dl-cdn.alpinelinux.org/alpine/v3.21/. Anyone can rebuild the exact image with `npm run image`.
+
+## wisp-js
+
+`@mercuryworkshop/wisp-js` is used, unmodified, by the relay server in `relay/`. It is not part of the published site.
+Project: https://github.com/MercuryWorkshop/wisp-js. License: GNU LGPL v3 or later.
